@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#080d18">
+    <title>NULL//ROBOT — A science-fueled roguelike</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="game-shell">
+      <header class="topbar">
+        <a class="wordmark" href="#" aria-label="Null Robot home"><span>NULL</span><span class="wordmark-slash">//</span>ROBOT</a>
+        <div class="run-label"><span class="status-dot"></span> DEEP FIELD SIMULATION</div>
+        <button class="sound-toggle" id="sound-toggle" type="button" aria-label="Toggle sound effects" title="Toggle sound effects">SOUND: OFF</button>
+      </header>
+
+      <section class="game-frame" aria-label="Game area">
+        <canvas id="game-canvas" width="960" height="600" aria-label="Top-down robot survival game"></canvas>
+
+        <div class="hud" id="hud" hidden>
+          <div class="hud-top">
+            <div class="stat-block">
+              <span class="stat-label">INTEGRITY</span>
+              <div class="health-track"><div class="health-fill" id="health-fill"></div></div>
+              <span class="stat-value" id="health-value">100 / 100</span>
+            </div>
+            <div class="stat-block xp-block">
+              <span class="stat-label">NEURAL DATA <span id="level-value">LV 1</span></span>
+              <div class="xp-track"><div class="xp-fill" id="xp-fill"></div></div>
+            </div>
+            <div class="run-stats">
+              <span class="stat-label">ELAPSED</span><span class="stat-value" id="time-value">00:00</span>
+              <span class="stat-label">ELIMINATIONS</span><span class="stat-value" id="kill-value">000</span>
+            </div>
+          </div>
+          <div class="wave-label" id="wave-label">SECTOR 01 <span>·</span> SIGNAL DETECTED</div>
+          <div class="build-display" id="build-display" aria-label="Installed protocols"></div>
+          <div class="bottom-hud">
+            <span>MOVE <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></span>
+            <span>PHASE SHIFT <kbd>SPACE</kbd></span>
+            <span class="auto-fire">AUTO-TARGET ACTIVE</span>
+          </div>
+        </div>
+
+        <section class="overlay" id="start-screen">
+          <div class="overlay-content intro-content">
+            <p class="eyebrow"><span class="eyebrow-line"></span> AUTONOMOUS UNIT 07 // ONLINE</p>
+            <h1>NULL<span>//</span><br>ROBOT</h1>
+            <p class="intro-copy">A hostile signal has breached the research grid.<br>Adapt. Evolve. Outlast the experiment.</p>
+            <button class="primary-button" id="start-button" type="button">INITIALIZE RUN <span>↗</span></button>
+            <div class="control-note"><span>WASD</span> TO MOVE <span>·</span> <span>SPACE</span> TO PHASE SHIFT <span>·</span> WEAPONS AUTO-TARGET</div>
+          </div>
+          <div class="intro-aside" aria-hidden="true">
+            <div class="orbit orbit-one"></div><div class="orbit orbit-two"></div>
+            <div class="aside-core"><span>07</span></div>
+            <div class="aside-readout">CORE TEMP <span>OPTIMAL</span><br>THREAT INDEX <span>UNKNOWN</span></div>
+          </div>
+        </section>
+
+        <section class="overlay upgrade-overlay" id="upgrade-screen" hidden>
+          <div class="overlay-content upgrade-content">
+            <p class="eyebrow"><span class="eyebrow-line"></span> ADAPTATION AVAILABLE</p>
+            <h2>Choose your<br><span>evolution.</span></h2>
+            <p class="upgrade-subtitle" id="upgrade-subtitle">Your first evolution defines the build. Choose a protocol to install.</p>
+            <div class="upgrade-cards" id="upgrade-cards"></div>
+          </div>
+        </section>
+
+        <section class="overlay" id="game-over-screen" hidden>
+          <div class="overlay-content game-over-content">
+            <p class="eyebrow"><span class="eyebrow-line"></span> CONNECTION TERMINATED</p>
+            <h2>UNIT<br><span>OFFLINE.</span></h2>
+            <p class="intro-copy">The research grid remains compromised.</p>
+            <div class="run-summary">
+              <div><span>TIME SURVIVED</span><strong id="final-time">00:00</strong></div>
+              <div><span>HOSTILES REMOVED</span><strong id="final-kills">000</strong></div>
+              <div><span>PROTOCOLS INSTALLED</span><strong id="final-upgrades">00</strong></div>
+            </div>
+            <p class="final-build-label">RUN BUILD <span id="final-build">NO PROTOCOLS INSTALLED</span></p>
+            <button class="primary-button" id="restart-button" type="button">REBOOT UNIT <span>↗</span></button>
+          </div>
+        </section>
+
+        <div class="toast" id="toast" aria-live="polite"></div>
+      </section>
+      <footer class="footer"><span>NULL//ROBOT <span class="footer-dim">·</span> EXPERIMENT 07</span><span>NO SIGNAL IS EVER TRULY LOST.</span></footer>
+    </main>
+    <script src="game.js"></script>
+  </body>
+</html>
