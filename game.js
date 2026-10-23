@@ -32,17 +32,30 @@ const upgrades = [
   { id: 'phasebattery', name: 'Phase Battery', icon: '◇', category: 'MOBILITY', description: 'Phase Shift erupts at your landing point. Dynamo primes a shockwave; Echo adds a second blast at takeoff.', max: 1, signature: true, synergy: ['dynamo', 'echo'] },
   { id: 'tidal', name: 'Tidal Collector', icon: '∿', category: 'SCAVENGE', description: 'Neural data is pulled in from farther away; each pickup draws nearby enemies toward you.', max: 1, signature: true, synergy: ['pulse', 'salvage'] },
   { id: 'quantum', name: 'Quantum Tunneling', icon: '⤳', category: 'MOBILITY', description: 'Phase Shift recovers faster, letting you cross danger more often.', max: 3 },
+  { id: 'overclock', name: 'Overclock Servo', icon: '⟳', category: 'FIRE RATE', description: 'Fire more rapidly. Tesla and Rail protocols accelerate into even faster attack cycles.', max: 3, signature: true, synergy: ['tesla', 'rail'] },
+  { id: 'deadeye', name: 'Deadeye Array', icon: '⌾', category: 'TARGET', description: 'Acquire targets at longer range and increase weapon damage. Beacon marks and Rail rounds reward precision.', max: 3, signature: true, synergy: ['beacon', 'rail'] },
+  { id: 'repulsor', name: 'Repulsor Core', icon: '◎', category: 'DEFENSE', description: 'Periodically blast nearby hostiles back. Graviton Pulse and Kinetic Dynamo recharge the core faster.', max: 2, signature: true, synergy: ['pulse', 'dynamo'] },
+  { id: 'overload', name: 'Overload Circuit', icon: 'ϟ', category: 'COMBO', description: 'Overclocked Tesla chains leap to one additional target and deal increased arc damage.', max: 1, requires: ['overclock', 'tesla'] },
+  { id: 'phaselance', name: 'Phase Lance', icon: '⇢', category: 'COMBO', description: 'Quantum Tunneling and Rail rounds turn each Phase Shift into a piercing blast at your landing point.', max: 1, requires: ['quantum', 'rail'] },
+  { id: 'vector', name: 'Vector Thrusters', icon: '➤', category: 'MOBILITY', description: 'Increase movement speed so you can reposition and evade more quickly.', max: 3, signature: true },
+  { id: 'fluxmagazine', name: 'Flux Magazine', icon: '▤', category: 'FIRE RATE', description: 'Reduce the time between auto-targeted shots.', max: 3, signature: true },
+  { id: 'magnetar', name: 'Magnetar Core', icon: '⊛', category: 'SCAVENGE', description: 'Collect neural data from farther away. Pairs with Graviton Pulse to strengthen its reach.', max: 3, signature: true, synergy: ['pulse'] },
+  { id: 'ricochet', name: 'Ricochet Matrix', icon: '⤿', category: 'PENETRATE', description: 'Shots pass through additional enemies. Tesla arcs amplify this with a longer chain.', max: 3, signature: true, synergy: ['tesla'] },
+  { id: 'salvageburst', name: 'Salvage Burst', icon: '✴', category: 'SCAVENGE', description: 'Neural data pickups release a damaging pulse. Salvage Symbiosis and Tidal Collector boost its payoff.', max: 1, signature: true, synergy: ['salvage', 'tidal'] },
+  { id: 'bulwark', name: 'Bulwark Protocol', icon: '⬢', category: 'DEFENSE', description: 'Reduce incoming damage. Isotope Plating and Entropy Reversal reinforce the damage buffer.', max: 3, signature: true, synergy: ['isotope', 'entropy'] },
+  { id: 'singularity', name: 'Singularity Core', icon: '⦿', category: 'COMBO', description: 'Magnetar Core expands Graviton Pulse and pulls enemies inward more forcefully.', max: 1, requires: ['magnetar', 'pulse'] },
+  { id: 'prism', name: 'Prism Cascade', icon: '✧', category: 'COMBO', description: 'Ricochet rounds feed Tesla arcs, adding another jump and extending their reach.', max: 1, requires: ['ricochet', 'tesla'] },
   { id: 'entropy', name: 'Entropy Reversal', icon: '⟳', category: 'REPAIR', description: 'Gradually rebuild integrity while you survive.', max: 3 },
   { id: 'isotope', name: 'Isotope Plating', icon: '⬡', category: 'ARMOR', description: 'Increase maximum integrity and repair damaged plating.', max: 3 },
   { id: 'nanobots', name: 'Nanobot Swarm', icon: '⁙', category: 'REPAIR', description: 'Restore integrity whenever you evolve.', max: 1 }
 ];
 const state = {
   running: false, paused: false, over: false, time: 0, kills: 0, level: 1, xp: 0, nextXp: 5,
-  player: null, enemies: [], bullets: [], orbs: [], particles: [], arcs: [], rings: [], upgradeLevels: {},
+  player: null, enemies: [], bullets: [], enemyShots: [], orbs: [], particles: [], arcs: [], rings: [], upgradeLevels: {},
   spawnTimer: 0, shotTimer: 0, phaseCooldown: 0, phaseTime: 0, regenTimer: 0,
   cameraShake: 0, lastFrame: 0, sound: false, toastTimer: 0, shotsFired: 0,
   bladeAngle: 0, pulseTimer: 0, pulseTime: 0, pulseCount: 0, dynamoCharge: 0, echo: null,
-  beaconTimer: 0, beaconLastTarget: null, capacitorCharge: 0
+  beaconTimer: 0, beaconLastTarget: null, capacitorCharge: 0, repulsorTimer: 0
 };
 
 function resetGame() {
@@ -56,6 +69,7 @@ function resetGame() {
   state.nextXp = 5;
   state.enemies = [];
   state.bullets = [];
+  state.enemyShots = [];
   state.orbs = [];
   state.particles = [];
   state.arcs = [];
@@ -77,6 +91,7 @@ function resetGame() {
   state.beaconTimer = 0;
   state.beaconLastTarget = null;
   state.capacitorCharge = 0;
+  state.repulsorTimer = 0;
   state.player = { x: WIDTH / 2, y: HEIGHT / 2, radius: 13, hp: 100, maxHp: 100, speed: 190, damage: 18, fireRate: .52, range: 390, pickup: 70, invulnerable: 0, facing: 0 };
   startScreen.hidden = true;
   upgradeScreen.hidden = true;
@@ -86,6 +101,10 @@ function resetGame() {
   updateHud();
   state.lastFrame = performance.now();
   requestAnimationFrame(gameLoop);
+}
+
+function incomingDamage(damage) {
+  return damage * Math.max(.55, 1 - (state.upgradeLevels.bulwark || 0) * .12);
 }
 
 function gameLoop(now) {
@@ -133,11 +152,14 @@ function update(dt) {
   state.shotTimer -= dt;
   if (target && state.shotTimer <= 0) {
     fireAt(target);
-    state.shotTimer = player.fireRate;
+    state.shotTimer = Math.max(.18, player.fireRate *
+      Math.pow(.88, state.upgradeLevels.overclock || 0) *
+      Math.pow(.9, state.upgradeLevels.fluxmagazine || 0));
   }
 
   updateBullets(dt);
   updateEnemies(dt);
+  updateEnemyShots(dt);
   updateOrbs(dt);
   updateParticles(dt);
   state.cameraShake = Math.max(0, state.cameraShake - dt * 20);
@@ -178,12 +200,13 @@ function updateBuildSystems(dt, moving) {
 
   const pulseLevel = state.upgradeLevels.pulse || 0;
   if (pulseLevel) {
+    const pulseRadius = 200 + (state.upgradeLevels.singularity ? 55 : 0);
     state.pulseTimer += dt;
     if (state.pulseTimer >= 8) {
       state.pulseTimer -= 8;
       state.pulseTime = .85;
       state.pulseCount++;
-      emitRing(player.x, player.y, 200, '#9c8bff');
+      emitRing(player.x, player.y, pulseRadius, '#9c8bff');
       if (state.upgradeLevels.eventhorizon) pulseCircuit();
       playTone(190, .2, .035, 'sine');
     }
@@ -193,7 +216,7 @@ function updateBuildSystems(dt, moving) {
         const dx = player.x - enemy.x;
         const dy = player.y - enemy.y;
         const distance = Math.hypot(dx, dy) || 1;
-        if (distance > 200) continue;
+        if (distance > pulseRadius) continue;
         if (enemy.pulseCount !== state.pulseCount) {
           enemy.pulseCount = state.pulseCount;
           if (pulseLevel > 1) {
@@ -204,8 +227,9 @@ function updateBuildSystems(dt, moving) {
             }
           }
         }
-        enemy.x += dx / distance * 170 * dt;
-        enemy.y += dy / distance * 170 * dt;
+        const pullSpeed = 170 + (state.upgradeLevels.singularity ? 80 : 0);
+        enemy.x += dx / distance * pullSpeed * dt;
+        enemy.y += dy / distance * pullSpeed * dt;
       }
     }
   }
@@ -241,6 +265,19 @@ function updateBuildSystems(dt, moving) {
       damageInRadius(player.x, player.y, radius, 20 + dynamoLevel * 12, 100);
       if (state.upgradeLevels.flywheel) flywheelSweep(dynamoLevel);
       playTone(125, .18, .045, 'triangle');
+    }
+  }
+
+  const repulsorLevel = state.upgradeLevels.repulsor || 0;
+  if (repulsorLevel) {
+    const accelerated = state.upgradeLevels.pulse || state.upgradeLevels.dynamo;
+    state.repulsorTimer += dt * (accelerated ? 1.35 : 1);
+    if (state.repulsorTimer >= 8) {
+      state.repulsorTimer -= 8;
+      const radius = 100 + repulsorLevel * 18;
+      emitRing(player.x, player.y, radius, '#83cfff');
+      damageInRadius(player.x, player.y, radius, 18 + repulsorLevel * 8, 115);
+      playTone(175, .16, .04, 'triangle');
     }
   }
 
@@ -293,13 +330,15 @@ function addCapacitorCharge(amount) {
 function chainLightning(source, damage) {
   const level = state.upgradeLevels.tesla;
   const conductor = state.upgradeLevels.superconductor || 0;
+  const prism = state.upgradeLevels.prism || 0;
   const visited = new Set([source]);
   let origin = source;
-  const chainCount = level + 1 + conductor;
+  const overload = state.upgradeLevels.overload || 0;
+  const chainCount = level + 1 + conductor + overload + prism;
   for (let chain = 0; chain < chainCount; chain++) {
     let target = null;
     let closest = Infinity;
-    const range = 125 + level * 18 + conductor * 38;
+    const range = 125 + level * 18 + conductor * 38 + prism * 35;
     for (const enemy of state.enemies) {
       if (visited.has(enemy)) continue;
       const distance = Math.hypot(enemy.x - origin.x, enemy.y - origin.y);
@@ -315,7 +354,7 @@ function chainLightning(source, damage) {
     state.arcs.push({ x1: origin.x, y1: origin.y, x2: target.x, y2: target.y, life: .16 });
     const wasFrozen = target.slowTimer > 0;
     if (conductor) target.slowTimer = Math.max(target.slowTimer || 0, 1.6 + conductor * .5);
-    damageEnemy(target, damage * (.38 + level * .1) * (wasFrozen && conductor ? 1.55 : 1));
+    damageEnemy(target, damage * (.38 + level * .1 + overload * .12 + prism * .1) * (wasFrozen && conductor ? 1.55 : 1));
     addCapacitorCharge(1);
     burst(target.x, target.y, '#81d8ff', 4);
     if (target.hp <= 0 && state.enemies.includes(target)) defeatEnemy(state.enemies.indexOf(target));
@@ -325,8 +364,9 @@ function chainLightning(source, damage) {
 
 function pulseCircuit() {
   const center = state.player;
+  const radius = 200 + (state.upgradeLevels.singularity ? 55 : 0);
   const cluster = state.enemies
-    .filter(enemy => Math.hypot(enemy.x - center.x, enemy.y - center.y) <= 200)
+    .filter(enemy => Math.hypot(enemy.x - center.x, enemy.y - center.y) <= radius)
     .sort((a, b) => Math.atan2(a.y - center.y, a.x - center.x) - Math.atan2(b.y - center.y, b.x - center.x));
   if (cluster.length < 2) return;
   const damage = 14 + (state.upgradeLevels.tesla || 0) * 7;
@@ -384,14 +424,30 @@ function spawnEnemy() {
   else if (edge === 1) { x = WIDTH + margin; y = Math.random() * HEIGHT; }
   else if (edge === 2) { x = Math.random() * WIDTH; y = HEIGHT + margin; }
   else { x = -margin; y = Math.random() * HEIGHT; }
-  const tankChance = Math.min(.08 + state.time / 260, .32);
-  const tank = state.time > 18 && Math.random() < tankChance;
+  const roll = Math.random();
+  const tankChance = state.time > 18 ? Math.min(.08 + state.time / 260, .24) : 0;
+  const runnerChance = state.time > 10 ? Math.min(.12 + state.time / 500, .22) : .08;
+  const spitterChance = state.time > 24 ? Math.min(.1 + state.time / 700, .18) : 0;
+  const splitterChance = state.time > 38 ? Math.min(.08 + state.time / 900, .14) : 0;
+  let kind = 'drone';
+  if (roll < tankChance) kind = 'tank';
+  else if (roll < tankChance + runnerChance) kind = 'runner';
+  else if (roll < tankChance + runnerChance + spitterChance) kind = 'spitter';
+  else if (roll < tankChance + runnerChance + spitterChance + splitterChance) kind = 'splitter';
+  const tank = kind === 'tank';
   const difficulty = 1 + state.time / 90;
+  const stats = {
+    drone: { radius: 12, hp: 28, speed: 64, damage: 12, color: '#e96b8a' },
+    tank: { radius: 17, hp: 68, speed: 39, damage: 20, color: '#ff9b68' },
+    runner: { radius: 9, hp: 19, speed: 105, damage: 9, color: '#ff6fca' },
+    spitter: { radius: 13, hp: 38, speed: 39, damage: 10, color: '#c59aff' },
+    splitter: { radius: 14, hp: 42, speed: 48, damage: 12, color: '#f1cf71' }
+  }[kind];
   state.enemies.push({
-    x, y, radius: tank ? 17 : 11 + Math.random() * 2,
-    hp: (tank ? 68 : 28) * difficulty, maxHp: (tank ? 68 : 28) * difficulty,
-    speed: (tank ? 39 : 54 + Math.random() * 20) * (1 + Math.min(state.time / 500, .32)),
-    damage: tank ? 20 : 12, color: tank ? '#ff9b68' : '#e96b8a', tank
+    x, y, radius: stats.radius, hp: stats.hp * difficulty, maxHp: stats.hp * difficulty,
+    speed: stats.speed * (1 + Math.min(state.time / 500, .32)),
+    damage: stats.damage, color: stats.color, tank, kind,
+    shotTimer: 1.3 + Math.random() * .8
   });
 }
 
@@ -409,19 +465,22 @@ function nearestEnemy() {
   return nearest;
 }
 
-function fireAt(enemy) {
+function fireAt(enemy, forceRail = false) {
   const dx = enemy.x - state.player.x;
   const dy = enemy.y - state.player.y;
   const length = Math.hypot(dx, dy) || 1;
   state.player.facing = Math.atan2(dy, dx);
   state.shotsFired++;
-  const railShot = state.upgradeLevels.rail && state.shotsFired % 4 === 0;
+  const railInterval = Math.max(2, 4 - (state.upgradeLevels.overclock || 0));
+  const railShot = forceRail || (state.upgradeLevels.rail && state.shotsFired % railInterval === 0);
   state.bullets.push({
     x: state.player.x + dx / length * 15, y: state.player.y + dy / length * 15,
     vx: dx / length * (railShot ? 680 : 430), vy: dy / length * (railShot ? 680 : 430),
     radius: railShot ? 5 : 3.5,
-    damage: state.player.damage * (railShot ? 2.2 : 1), life: 1.15,
-    rail: Boolean(railShot), pierce: railShot ? 4 : 0, hitEnemies: []
+    damage: state.player.damage * (1 + (state.upgradeLevels.deadeye || 0) * .12) * (railShot ? 2.2 : 1), life: 1.15,
+    rail: Boolean(railShot),
+    pierce: (railShot ? 4 : 0) + (state.upgradeLevels.ricochet || 0),
+    hitEnemies: []
   });
   addCapacitorCharge(railShot ? 3 : 1);
   playTone(railShot ? 330 : 540, railShot ? .09 : .045, .025, 'triangle');
@@ -479,8 +538,19 @@ function defeatEnemy(index) {
   const beaconBurst = enemy.markTimer > 0 && state.upgradeLevels.beacon;
   state.enemies.splice(index, 1);
   state.kills++;
-  state.orbs.push({ x: enemy.x, y: enemy.y, radius: 5, value: enemy.tank ? 3 : 1, phase: Math.random() * TAU });
+  state.orbs.push({ x: enemy.x, y: enemy.y, radius: 5, value: enemy.tank || enemy.kind === 'splitter' ? 3 : 1, phase: Math.random() * TAU });
   burst(enemy.x, enemy.y, enemy.color, enemy.tank ? 14 : 8);
+  if (enemy.kind === 'splitter') {
+    for (let child = 0; child < 2; child++) {
+      const angle = child * Math.PI + Math.random() * .4;
+      state.enemies.push({
+        x: enemy.x + Math.cos(angle) * 10, y: enemy.y + Math.sin(angle) * 10,
+        radius: 7, hp: 12 * (1 + state.time / 90), maxHp: 12 * (1 + state.time / 90),
+        speed: 92 * (1 + Math.min(state.time / 500, .32)), damage: 7,
+        color: '#f1cf71', tank: false, kind: 'mite', shotTimer: 0
+      });
+    }
+  }
   if (state.upgradeLevels.fission && !enemy.exploded) {
     enemy.exploded = true;
     const level = state.upgradeLevels.fission;
@@ -512,11 +582,24 @@ function updateEnemies(dt) {
     const dy = targetY - enemy.y;
     const distance = Math.hypot(dx, dy) || 1;
     const slowFactor = enemy.slowTimer > 0 ? .48 : 1;
-    enemy.x += dx / distance * enemy.speed * slowFactor * dt;
-    enemy.y += dy / distance * enemy.speed * slowFactor * dt;
+    let direction = 1;
+    if (enemy.kind === 'spitter') {
+      if (distance < 145) direction = -1;
+      else if (distance <= 225) direction = 0;
+      enemy.shotTimer -= dt;
+      if (enemy.shotTimer <= 0 && distance < 420) {
+        state.enemyShots.push({
+          x: enemy.x, y: enemy.y, vx: dx / distance * 170, vy: dy / distance * 170,
+          radius: 5, damage: enemy.damage, life: 2.8
+        });
+        enemy.shotTimer = 2.4;
+      }
+    }
+    enemy.x += dx / distance * enemy.speed * slowFactor * direction * dt;
+    enemy.y += dy / distance * enemy.speed * slowFactor * direction * dt;
     const playerDistance = Math.hypot(player.x - enemy.x, player.y - enemy.y);
     if (playerDistance < player.radius + enemy.radius && player.invulnerable <= 0) {
-      player.hp -= enemy.damage;
+      player.hp -= incomingDamage(enemy.damage);
       player.invulnerable = .68;
       state.phaseTime = 0;
       state.cameraShake = 6;
@@ -524,6 +607,29 @@ function updateEnemies(dt) {
       burst(player.x, player.y, '#ff9b68', 11);
       playTone(100, .16, .06, 'sawtooth');
       if (enemy.hp <= 0) defeatEnemy(i);
+      if (player.hp <= 0) endGame();
+    }
+  }
+}
+
+function updateEnemyShots(dt) {
+  const player = state.player;
+  for (let i = state.enemyShots.length - 1; i >= 0; i--) {
+    const shot = state.enemyShots[i];
+    shot.x += shot.vx * dt;
+    shot.y += shot.vy * dt;
+    shot.life -= dt;
+    if (shot.life <= 0 || shot.x < -20 || shot.x > WIDTH + 20 || shot.y < -20 || shot.y > HEIGHT + 20) {
+      state.enemyShots.splice(i, 1);
+      continue;
+    }
+    if (Math.hypot(player.x - shot.x, player.y - shot.y) < player.radius + shot.radius && player.invulnerable <= 0) {
+      state.enemyShots.splice(i, 1);
+      player.hp -= incomingDamage(shot.damage);
+      player.invulnerable = .68;
+      state.cameraShake = 5;
+      burst(player.x, player.y, '#c59aff', 8);
+      playTone(100, .12, .05, 'sawtooth');
       if (player.hp <= 0) endGame();
     }
   }
@@ -563,6 +669,12 @@ function updateOrbs(dt) {
         const radius = state.upgradeLevels.tidal ? 58 : 42;
         emitRing(p.x, p.y, radius, '#6ce6d1');
         damageInRadius(p.x, p.y, radius, 15);
+      }
+      if (state.upgradeLevels.salvageburst) {
+        const bonus = (state.upgradeLevels.salvage ? 10 : 0) + (state.upgradeLevels.tidal ? 10 : 0);
+        const radius = 54 + (state.upgradeLevels.tidal ? 14 : 0);
+        emitRing(p.x, p.y, radius, '#b8f27c');
+        damageInRadius(p.x, p.y, radius, 22 + bonus);
       }
       playTone(780, .045, .025, 'sine');
       while (state.xp >= state.nextXp && !state.paused) levelUp();
@@ -630,6 +742,15 @@ function selectUpgrade(upgrade) {
     case 'blades': state.bladeAngle = 0; break;
     case 'dynamo': state.dynamoCharge = 0; break;
     case 'tidal': p.pickup = Math.max(p.pickup, 145); break;
+    case 'overclock': break;
+    case 'deadeye': p.range += 45; p.damage += 3; break;
+    case 'repulsor': state.repulsorTimer = Math.max(state.repulsorTimer, 4); break;
+    case 'vector': p.speed += 16; break;
+    case 'fluxmagazine': break;
+    case 'magnetar': p.pickup += 28; break;
+    case 'ricochet': break;
+    case 'salvageburst': break;
+    case 'bulwark': break;
   }
   upgradeScreen.hidden = true;
   state.paused = false;
@@ -666,6 +787,12 @@ function activatePhase() {
       emitRing(echo.x, echo.y, 72, '#84d9ff');
       damageInRadius(echo.x, echo.y, 72, 30, 35);
     }
+  }
+  if (state.upgradeLevels.phaselance) {
+    emitRing(state.player.x, state.player.y, 92, '#ffcf72');
+    damageInRadius(state.player.x, state.player.y, 92, 34, 55);
+    const target = nearestEnemy();
+    if (target) fireAt(target, true);
   }
   burst(state.player.x, state.player.y, '#6ce6d1', 13);
   playTone(320, .16, .055, 'sine');
@@ -739,6 +866,13 @@ function draw() {
       ctx.stroke();
     }
     circle(bullet.x, bullet.y, bullet.radius);
+    ctx.shadowBlur = 0;
+  }
+  for (const shot of state.enemyShots) {
+    ctx.fillStyle = '#d9b5ff';
+    ctx.shadowColor = '#c59aff';
+    ctx.shadowBlur = 12;
+    circle(shot.x, shot.y, shot.radius);
     ctx.shadowBlur = 0;
   }
   for (const enemy of state.enemies) drawEnemy(enemy);
@@ -884,25 +1018,36 @@ function drawEnemy(enemy) {
     ctx.shadowBlur = 0;
   }
   ctx.rotate(state.time * (enemy.tank ? -.35 : .7));
-  ctx.fillStyle = enemy.tank ? 'rgba(255, 155, 104, .14)' : 'rgba(233, 107, 138, .12)';
+  ctx.fillStyle = `${enemy.color}28`;
   ctx.strokeStyle = enemy.slowTimer > 0 ? '#8ddcff' : enemy.color;
-  ctx.lineWidth = enemy.tank ? 2 : 1.5;
+  ctx.lineWidth = enemy.tank || enemy.kind === 'splitter' ? 2 : 1.5;
   ctx.shadowColor = enemy.color;
   ctx.shadowBlur = 9;
-  if (enemy.tank) {
+  if (enemy.tank || enemy.kind === 'splitter') {
     ctx.beginPath();
-    for (let i = 0; i < 8; i++) {
-      const a = i / 8 * TAU;
+    const points = enemy.kind === 'splitter' ? 6 : 8;
+    for (let i = 0; i < points; i++) {
+      const a = i / points * TAU;
       const r = enemy.radius * (i % 2 ? .79 : 1);
       if (i === 0) ctx.moveTo(Math.cos(a) * r, Math.sin(a) * r); else ctx.lineTo(Math.cos(a) * r, Math.sin(a) * r);
     }
     ctx.closePath(); ctx.fill(); ctx.stroke();
+  } else if (enemy.kind === 'spitter') {
+    ctx.beginPath();
+    ctx.arc(0, 0, enemy.radius, 0, TAU);
+    ctx.fill(); ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(-enemy.radius * .65, -enemy.radius * .35);
+    ctx.lineTo(0, -enemy.radius * .8);
+    ctx.lineTo(enemy.radius * .65, -enemy.radius * .35);
+    ctx.stroke();
   } else {
-    ctx.beginPath(); ctx.moveTo(0, -enemy.radius); ctx.lineTo(enemy.radius, 0); ctx.lineTo(0, enemy.radius); ctx.lineTo(-enemy.radius, 0); ctx.closePath(); ctx.fill(); ctx.stroke();
+    const tip = enemy.kind === 'runner' || enemy.kind === 'mite' ? enemy.radius * 1.5 : enemy.radius;
+    ctx.beginPath(); ctx.moveTo(tip, 0); ctx.lineTo(-enemy.radius * .75, -enemy.radius); ctx.lineTo(-enemy.radius * .45, 0); ctx.lineTo(-enemy.radius * .75, enemy.radius); ctx.closePath(); ctx.fill(); ctx.stroke();
   }
   ctx.shadowBlur = 0;
   ctx.fillStyle = enemy.color;
-  circle(0, 0, enemy.tank ? 4 : 2.5);
+  circle(0, 0, enemy.tank ? 4 : enemy.kind === 'spitter' ? 4 : 2.5);
   ctx.restore();
   if (enemy.hp < enemy.maxHp) {
     ctx.fillStyle = 'rgba(0, 0, 0, .6)'; ctx.fillRect(enemy.x - 12, enemy.y - enemy.radius - 7, 24, 2);
